@@ -3448,6 +3448,32 @@ const cart = {
    PRICE
    ============================================================ */
 
+function diskPriceForFrame(
+  frameShape
+){
+
+  const prices = {
+
+    cercle:
+      3,
+
+    octogone:
+      4,
+
+    capsule:
+      5
+
+  };
+
+
+  return (
+    prices[frameShape] ||
+    0
+  );
+
+}
+
+
 function unitPriceFor(
   beads
 ){
@@ -3474,7 +3500,13 @@ function unitPriceFor(
     );
 
 
-  const engrave =
+  const diskTotal =
+    diskPriceForFrame(
+      state.frameShape
+    );
+
+
+  const engravingTotal =
     document
       .getElementById(
         "logoFile"
@@ -3488,7 +3520,8 @@ function unitPriceFor(
 
     base +
     beadsTotal +
-    engrave
+    diskTotal +
+    engravingTotal
 
   );
 
@@ -3535,14 +3568,11 @@ function hexToRgb(
 
   return [
 
-    (num >> 16) &
-    255,
+    (num >> 16) & 255,
 
-    (num >> 8) &
-    255,
+    (num >> 8) & 255,
 
-    num &
-    255
+    num & 255
 
   ];
 
@@ -5448,13 +5478,27 @@ function renderPreview(){
     state.qty;
 
 
+  /* ==========================================================
+     TOTAL RESUME
+     ========================================================== */
+
+  const unitPrice =
+    unitPriceFor(
+      state.beads
+    );
+
+
+  const totalPrice =
+    unitPrice *
+    Number(
+      state.qty
+    );
+
+
   document.getElementById(
     "totalAmount"
   ).textContent =
-
-    `${unitPriceFor(
-      state.beads
-    )} DH`;
+    `${totalPrice} DH`;
 
 }
 
@@ -5497,12 +5541,43 @@ function getSelectedBraceletId(){
 
 function getSelectedDiskId(){
 
+  /*
+     IMPORTANT:
+     D'après ton code actuel:
+
+     octogone -> ID 1
+     cercle   -> ID 2
+
+     Capsule -> ID 3 si le Disk Capsule existe
+     réellement avec cet ID en database.
+  */
+
   if(
     state.frameShape ===
     "octogone"
   ){
 
     return 1;
+
+  }
+
+
+  if(
+    state.frameShape ===
+    "cercle"
+  ){
+
+    return 2;
+
+  }
+
+
+  if(
+    state.frameShape ===
+    "capsule"
+  ){
+
+    return 3;
 
   }
 
@@ -5593,10 +5668,7 @@ function cartItemSwatchHTML(
     types
       .map(
         (c,i) =>
-          `${c} ${(
-            i *
-            angleStep
-          ).toFixed(0)}deg ${(
+          `${c} ${(i * angleStep).toFixed(0)}deg ${(
             (i+1) *
             angleStep
           ).toFixed(0)}deg`
@@ -5619,7 +5691,9 @@ function updateCartCount(){
 
       (sum,item) =>
         sum +
-        item.qty,
+        Number(
+          item.qty
+        ),
 
       0
 
@@ -5763,13 +5837,27 @@ async function updateBackendCartItem(
   }
 
 
+  /*
+     Django total_price =
+     prix TOTAL du CartItem
+
+     Frontend unitPrice =
+     prix d'une seule unité
+  */
+
   item.qty =
-    data.quantity;
+    Number(
+      data.quantity
+    );
 
 
   item.unitPrice =
     Number(
       data.total_price
+    ) /
+    Number(
+      data.quantity ||
+      1
     );
 
 }
@@ -5893,6 +5981,15 @@ function renderCart(){
           "cart-item";
 
 
+        const itemTotal =
+          Number(
+            item.unitPrice
+          ) *
+          Number(
+            item.qty
+          );
+
+
         el.innerHTML = `
 
           <div
@@ -5993,14 +6090,7 @@ function renderCart(){
                 class="cart-item-price"
               >
 
-                ${
-                  Number(
-                    item.unitPrice
-                  ) *
-                  Number(
-                    item.qty
-                  )
-                }
+                ${itemTotal}
 
                 DH
 
@@ -6055,7 +6145,9 @@ function renderCart(){
 
                   await updateBackendCartItem(
                     item,
-                    item.qty + 1
+                    Number(
+                      item.qty
+                    ) + 1
                   );
 
                 }
@@ -6070,7 +6162,9 @@ function renderCart(){
                     item,
                     Math.max(
                       1,
-                      item.qty - 1
+                      Number(
+                        item.qty
+                      ) - 1
                     )
                   );
 
@@ -6279,6 +6373,7 @@ document
                   1;
 
               }
+
               else if(
                 bead.type ===
                 "pvc"
@@ -6288,6 +6383,7 @@ document
                   2;
 
               }
+
               else if(
                 bead.type ===
                 "roche"
@@ -6297,6 +6393,7 @@ document
                   3;
 
               }
+
               else if(
                 bead.type ===
                 "couleur"
@@ -6306,6 +6403,7 @@ document
                   1;
 
               }
+
               else if(
                 bead.type ===
                 "argent"
@@ -6316,6 +6414,12 @@ document
 
               }
 
+
+              /*
+                 Colorées:
+                 bead_id = 1
+                 color_id != null
+              */
 
               if(
                 bead.type ===
@@ -6331,6 +6435,28 @@ document
               }
 
 
+              /*
+                 Argentées:
+                 backend les considère comme:
+
+                 bead_id = 2
+                 color_id != null
+
+                 Donc on donne ici
+                 une couleur non-null.
+              */
+
+              if(
+                bead.type ===
+                "argent"
+              ){
+
+                colorId =
+                  1;
+
+              }
+
+
               return {
 
                 bead_id:
@@ -6341,7 +6467,7 @@ document
 
                 size_mm:
                   Number(
-                    state.activeSize
+                    bead.sizeMm
                   )
 
               };
@@ -6378,6 +6504,7 @@ document
             `${BACKEND_URL}/api/cart/`,
 
             {
+
               method:"POST",
 
               body:
@@ -6399,7 +6526,9 @@ document
                       : "",
 
                   quantity:
-                    state.qty
+                    Number(
+                      state.qty
+                    )
 
                 })
 
@@ -6422,6 +6551,31 @@ document
           );
 
         }
+
+
+        /*
+           Backend:
+
+           total_price = prix total
+
+           quantity = quantité
+
+           unitPrice =
+           total_price / quantity
+        */
+
+        const backendQuantity =
+          Number(
+            data.quantity ||
+            1
+          );
+
+
+        const backendUnitPrice =
+          Number(
+            data.total_price
+          ) /
+          backendQuantity;
 
 
         cart.items.push({
@@ -6448,16 +6602,10 @@ document
             state.material,
 
           unitPrice:
-            Number(
-              data.total_price
-            ) /
-            Number(
-              data.quantity ||
-              1
-            ),
+            backendUnitPrice,
 
           qty:
-            data.quantity,
+            backendQuantity,
 
           hasLogo:
             document
@@ -6628,6 +6776,7 @@ document
             `${BACKEND_URL}/api/orders/`,
 
             {
+
               method:"POST",
 
               body:
@@ -6671,6 +6820,7 @@ document
             `${BACKEND_URL}/api/payments/`,
 
             {
+
               method:"POST",
 
               body:
@@ -6894,6 +7044,5 @@ fetch(
 );
 
 </script>
-
 </body>
 </html>
